@@ -10,26 +10,54 @@ export default function Pokedex() {
   const [offset, setOffset] = useState(0);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [noMorePokemons, setNoMorePokemons] = useState(false);
 
   useEffect(() => {
     const loadPokemons = async () => {
+      if (loading || noMorePokemons) return;
+
       try {
+        setLoading(true);
+        console.log("Fetching Pokémon with offset:", offset); // Debug
         const data = await fetchPokemons(50, offset);
+        console.log("Fetched Pokémon data:", data); // Debug
+
         setPokemons((prev) => {
           const existingIds = new Set(prev.map((pokemon) => pokemon.id));
           const newPokemons = data.filter((pokemon: Pokemon) => !existingIds.has(pokemon.id));
+          console.log("New Pokémon to add:", newPokemons); // Debug
+
+          if (newPokemons.length === 0) {
+            setNoMorePokemons(true); // Si aucun nouveau Pokémon n'est ajouté
+          }
+
           return [...prev, ...newPokemons];
         });
       } catch (error) {
         console.error("Failed to fetch Pokémons:", error);
+      } finally {
+        setLoading(false);
       }
     };
+
     loadPokemons();
   }, [offset]);
 
-  const handleLoadMore = () => {
-    setOffset((prev) => prev + 50);
+  const handleScroll = () => {
+    if (
+      window.innerHeight + window.scrollY >= document.body.offsetHeight - 500 &&
+      !loading &&
+      !noMorePokemons
+    ) {
+      setOffset((prev) => prev + 50);
+    }
   };
+
+  useEffect(() => {
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [loading, noMorePokemons]);
 
   const filteredPokemons = pokemons.filter((pokemon: Pokemon) => {
     const matchesSearch = pokemon.name.toLowerCase().includes(search.toLowerCase());
@@ -69,18 +97,23 @@ export default function Pokedex() {
         </select>
       </div>
 
+      {/* Liste des Pokémon */}
       <div className="pokemon-list grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         {filteredPokemons.map((pokemon: Pokemon) => (
           <PokemonCard key={pokemon.id} pokemon={pokemon} />
         ))}
       </div>
 
-      <button
-        onClick={handleLoadMore}
-        className="mt-6 bg-blue-500 text-white px-4 py-2 rounded shadow hover:bg-blue-600 transition"
-      >
-        Affichée plus
-      </button>
+      {/* Aucun Pokémon */}
+      {filteredPokemons.length === 0 && (
+        <div className="text-center text-gray-500">Aucun Pokémon trouvé.</div>
+      )}
+
+      {/* Chargement ou fin */}
+      {loading && <p className="text-center mt-6 text-gray-500">Chargement...</p>}
+      {noMorePokemons && !loading && (
+        <p className="text-center mt-6 text-gray-500">Tous les Pokémon ont été chargés.</p>
+      )}
     </div>
   );
 }
