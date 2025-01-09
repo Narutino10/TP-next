@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { fetchPokemons } from "@/services/api";
 import PokemonCard from "@/components/PokemonCard";
 import { Pokemon } from "@/types";
@@ -11,52 +11,56 @@ export default function Pokedex() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [loading, setLoading] = useState(false);
-  const [limit, setLimit] = useState(50); 
+  const [limit, setLimit] = useState(50);
   const [noMorePokemons, setNoMorePokemons] = useState(false);
 
-  useEffect(() => {
-    const loadPokemons = async () => {
-      if (loading || noMorePokemons) return;
+  // Charger les Pokémon
+  const loadPokemons = useCallback(async () => {
+    if (loading || noMorePokemons) return;
 
-      try {
-        setLoading(true);
-        console.log(`Fetching Pokémon with limit: ${limit}, offset: ${offset}`);
-        const data = await fetchPokemons(limit, offset);
-        console.log("Fetched Pokémon data:", data);
+    setLoading(true);
+    try {
+      const data = await fetchPokemons(limit, offset);
 
-        setPokemons((prev) => {
-          const existingIds = new Set(prev.map((pokemon) => pokemon.id));
-          const newPokemons = data.filter((pokemon: Pokemon) => !existingIds.has(pokemon.id));
-          if (newPokemons.length === 0) {
-            setNoMorePokemons(true);
-          }
-          return [...prev, ...newPokemons];
-        });
-      } catch (error) {
-        console.error("Failed to fetch Pokémon:", error);
-      } finally {
-        setLoading(false);
+      if (data.length === 0) {
+        setNoMorePokemons(true); // Plus de Pokémon à charger
+        return;
       }
-    };
 
-    loadPokemons();
-  }, [offset, limit]);
+      setPokemons((prev) => {
+        const existingIds = new Set(prev.map((pokemon) => pokemon.id));
+        const newPokemons = data.filter((pokemon: Pokemon) => !existingIds.has(pokemon.id));
+        return [...prev, ...newPokemons];
+      });
 
-  const handleScroll = () => {
-    if (
-      window.innerHeight + window.scrollY >= document.body.offsetHeight - 500 &&
-      !loading &&
-      !noMorePokemons
-    ) {
-      setOffset((prev) => prev + limit);
+      setOffset((prev) => prev + limit); // Mise à jour du décalage
+    } catch (error) {
+      console.error("Erreur lors du chargement des Pokémon :", error);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [limit, offset, loading, noMorePokemons]);
+
+  // Gestion du scroll infini
+  const handleScroll = useCallback(() => {
+    if (
+      window.innerHeight + document.documentElement.scrollTop >=
+      document.documentElement.offsetHeight - 100
+    ) {
+      loadPokemons();
+    }
+  }, [loadPokemons]);
+
+  useEffect(() => {
+    loadPokemons(); // Charger les Pokémon au chargement initial
+  }, [loadPokemons]);
 
   useEffect(() => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [loading, noMorePokemons]);
+  }, [handleScroll]);
 
+  // Filtrer les Pokémon
   const filteredPokemons = pokemons.filter((pokemon: Pokemon) => {
     const matchesSearch = pokemon.name.toLowerCase().includes(search.toLowerCase());
     const matchesType =
@@ -64,12 +68,14 @@ export default function Pokedex() {
     return matchesSearch && matchesType;
   });
 
+  // Extraire les types uniques
   const uniqueTypes = Array.from(
     new Set(pokemons.flatMap((pokemon: Pokemon) => pokemon.types.map((type) => type.name)))
   );
 
   return (
     <div className="p-4 max-w-4xl mx-auto">
+      {/* Barre de recherche et filtres */}
       <div className="mb-4 flex flex-col md:flex-row gap-4">
         <input
           type="text"
@@ -78,7 +84,6 @@ export default function Pokedex() {
           onChange={(e) => setSearch(e.target.value)}
           className="search-bar p-2 border border-gray-300 rounded flex-1"
         />
-
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
@@ -91,34 +96,29 @@ export default function Pokedex() {
             </option>
           ))}
         </select>
-
-        
         <select
           value={limit}
-          onChange={(e) => {
-            setLimit(Number(e.target.value));
-            setOffset(0); 
-            setPokemons([]); 
-            setNoMorePokemons(false);
-          }}
+          onChange={(e) => setLimit(parseInt(e.target.value, 10))}
           className="p-2 border border-gray-300 rounded"
         >
-          <option value={10}>Afficher 10 Pokémon</option>
-          <option value={20}>Afficher 20 Pokémon</option>
-          <option value={50}>Afficher 50 Pokémon</option>
-          <option value={100}>Afficher 100 Pokémon</option>
+          <option value={10}>10</option>
+          <option value={20}>20</option>
+          <option value={50}>50</option>
+          <option value={100}>100</option>
         </select>
       </div>
 
+      {/* Liste des Pokémon */}
       <div className="pokemon-list grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         {filteredPokemons.map((pokemon: Pokemon) => (
           <PokemonCard key={pokemon.id} pokemon={pokemon} />
         ))}
       </div>
 
-      {loading && <p className="text-center mt-6 text-gray-500">Chargement...</p>}
-      {noMorePokemons && !loading && (
-        <p className="text-center mt-6 text-gray-500">Tous les Pokémon ont été chargés.</p>
+      {/* Messages de fin ou de chargement */}
+      {loading && <div className="text-center text-gray-500">Chargement...</div>}
+      {!loading && noMorePokemons && (
+        <div className="text-center text-gray-500">Aucun Pokémon supplémentaire à afficher.</div>
       )}
     </div>
   );
