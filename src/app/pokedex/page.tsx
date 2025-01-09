@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { fetchPokemons } from "@/services/api";
 import PokemonCard from "@/components/PokemonCard";
