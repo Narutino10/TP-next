@@ -29,7 +29,9 @@ export default function Pokedex() {
 
       setPokemons((prev) => {
         const existingIds = new Set(prev.map((pokemon) => pokemon.id));
-        const newPokemons = data.filter((pokemon: Pokemon) => !existingIds.has(pokemon.id));
+        const newPokemons = data.filter(
+          (pokemon: Pokemon) => !existingIds.has(pokemon.id)
+        );
         return [...prev, ...newPokemons];
       });
 
@@ -39,7 +41,7 @@ export default function Pokedex() {
     } finally {
       setLoading(false);
     }
-  }, [limit, offset, loading, noMorePokemons]);
+  }, [limit, offset, noMorePokemons]);
 
   // Gestion du scroll infini
   const handleScroll = useCallback(() => {
@@ -49,11 +51,21 @@ export default function Pokedex() {
     ) {
       loadPokemons();
     }
-  }, [loadPokemons]);
+  }, []); // première boucle infinie
 
   useEffect(() => {
     loadPokemons(); // Charger les Pokémon au chargement initial
-  }, [loadPokemons]);
+  }, []); // deuxième boucle infinie
+
+  /** Explication des boucles infinies:
+   *
+   * Ta fonction loadPokemons est définie en tant que dépendance du useEffect,
+   * ce qui signifie que chaque fois que loadPokemons change, le useEffect est exécuté à nouveau
+   *
+   * Et ta fonction change à chaque rendu, car elle est définie à l'intérieur du composant
+   *
+   * Donc, à chaque rendu, loadPokemons change, ce qui déclenche le useEffect, qui appelle loadPokemons, qui change, etc.
+   */
 
   useEffect(() => {
     window.addEventListener("scroll", handleScroll);
@@ -62,15 +74,22 @@ export default function Pokedex() {
 
   // Filtrer les Pokémon
   const filteredPokemons = pokemons.filter((pokemon: Pokemon) => {
-    const matchesSearch = pokemon.name.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = pokemon.name
+      .toLowerCase()
+      .includes(search.toLowerCase());
     const matchesType =
-      typeFilter === "" || pokemon.types.some((type) => type.name === typeFilter);
+      typeFilter === "" ||
+      pokemon.types.some((type) => type.name === typeFilter);
     return matchesSearch && matchesType;
   });
 
   // Extraire les types uniques
   const uniqueTypes = Array.from(
-    new Set(pokemons.flatMap((pokemon: Pokemon) => pokemon.types.map((type) => type.name)))
+    new Set(
+      pokemons.flatMap((pokemon: Pokemon) =>
+        pokemon.types.map((type) => type.name)
+      )
+    )
   );
 
   return (
@@ -116,9 +135,13 @@ export default function Pokedex() {
       </div>
 
       {/* Messages de fin ou de chargement */}
-      {loading && <div className="text-center text-gray-500">Chargement...</div>}
+      {loading && (
+        <div className="text-center text-gray-500">Chargement...</div>
+      )}
       {!loading && noMorePokemons && (
-        <div className="text-center text-gray-500">Aucun Pokémon supplémentaire à afficher.</div>
+        <div className="text-center text-gray-500">
+          Aucun Pokémon supplémentaire à afficher.
+        </div>
       )}
     </div>
   );
